@@ -29,4 +29,5 @@ curious.peer.bot/
 `main_00.py`
 - 돌아가긴 함. 
 - 'type' parameter 관련된 deprecation warning 있음. 
-- 업로드한 파일명이 저장되지 않는 문제 있음. submit method (ctrl+enter 로 submit) 작동 안함
+- 업로드한 파일명이 저장되지 않는 문제 있음. 
+- submit method (ctrl+enter 로 submit) 작동 안함
