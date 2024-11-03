@@ -5,21 +5,21 @@
 
 # Structure
 
-curious.peer.bot/
-├── .env
-├── requirements.txt
-├── main.py
-├── bot_src/
-│   ├── __init__.py
-│   ├── sys_prompt.txt
-│   ├── bot.py
-│   └── utils.py
-└── _output/
+curious.peer.bot/   
+├── .env   
+├── requirements.txt   
+├── main.py   
+├── bot_src/   
+│   ├── __init__.py   
+│   ├── sys_prompt.txt   
+│   ├── bot.py   
+│   └── utils.py   
+└── _output/   
 
 # Notes
 Updating library `pip install -r requirements.txt --upgrade`
 
-# version
+# Version log
 `main.py`
 - 'type' parameter 관련된 deprecation warning 해결
 - 업로드 파일명 저장 안되는 문제 해결 
