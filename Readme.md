@@ -17,7 +17,8 @@ curious.peer.bot/
 └── _output/   
 
 # Notes
-Updating library `pip install -r requirements.txt --upgrade`
+- Run `pip install -r requirements.txt --upgrade` to update all required packages
+- Note: The `_output/` directory (containing local chat histories) is excluded via .gitignore
 
 # Version log
 `main.py`
