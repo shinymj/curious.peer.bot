@@ -1,4 +1,4 @@
-from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import RunnableSequence
@@ -12,15 +12,15 @@ from typing import Dict, List, Any
 load_dotenv()
 
 # Verify API key is available
-if not os.getenv("OPENAI_API_KEY"):
-    raise ValueError("OPENAI_API_KEY not found in environment variables")
+if not os.getenv("ANTHROPIC_API_KEY"):
+    raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
 
 class ArticleUnderstandingBot:
     def __init__(self, article_text: str, min_score: int = 10):
-        self.llm = ChatOpenAI(
+        self.llm = ChatAnthropic(
             temperature=0.7,
-            openai_api_key=os.getenv("OPENAI_API_KEY"),
-            model="gpt-4o"
+            api_key=os.getenv("ANTHROPIC_API_KEY"),
+            model="claude-3-5-sonnet-20241022" 
         )
         self.article = article_text
         self.chat_history = ChatMessageHistory()
@@ -131,19 +131,19 @@ class ArticleUnderstandingBot:
             
             [최종 정리를 위한 구조]
             1. 글의 핵심 주장
-   - 무엇을 다루어야 하는지
-   - 어떤 요소들을 포함해야 하는지
+            - 무엇을 다루어야 하는지
+            - 어떤 요소들을 포함해야 하는지
 
-2. 비판적 분석
-   - 어떤 관점에서 분석해야 하는지
-   - 어떤 요소들을 고려해야 하는지
+            2. 비판적 분석
+            - 어떤 관점에서 분석해야 하는지
+            - 어떤 요소들을 고려해야 하는지
 
-3. 자신의 관점과 근거
-   - 어떤 내용을 다루어야 하는지
-   - 근거는 어떻게 제시해야 하는지
+            3. 자신의 관점과 근거
+            - 어떤 내용을 다루어야 하는지
+            - 근거는 어떻게 제시해야 하는지
 
-각 항목별로 2-3개의 구체적인 가이드라인을 제시해주세요.
-"""
+            각 항목별로 2-3개의 구체적인 가이드라인을 제시해주세요.
+            """
         )
 
     def start_initial_assessment(self) -> Dict[str, Any]:
