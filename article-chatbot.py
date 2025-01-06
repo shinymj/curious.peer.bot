@@ -122,16 +122,27 @@ class ArticleUnderstandingBot:
         self.synthesis_prompt = PromptTemplate(
             input_variables=["article", "conversation_history"],
             template="""
-            전체 대화를 바탕으로 학생이 최종 생각을 정리할 수 있는 구조를 제시해주세요:
+            전체 대화를 바탕으로 다음 구조에 따라 최종 정리를 작성할 수 있도록 안내해주세요.
+            이때 구체적인 내용은 작성하지 말고, 구조만 제시해주세요.
             
             원문: {article}
             대화 내용: {conversation_history}
             
-            다음 구조로 작성하도록 안내해주세요:
+            [최종 정리를 위한 구조]
             1. 글의 핵심 주장
-            2. 비판적 분석
-            3. 자신의 관점과 근거
-            """
+   - 무엇을 다루어야 하는지
+   - 어떤 요소들을 포함해야 하는지
+
+2. 비판적 분석
+   - 어떤 관점에서 분석해야 하는지
+   - 어떤 요소들을 고려해야 하는지
+
+3. 자신의 관점과 근거
+   - 어떤 내용을 다루어야 하는지
+   - 근거는 어떻게 제시해야 하는지
+
+각 항목별로 2-3개의 구체적인 가이드라인을 제시해주세요.
+"""
         )
 
     def start_initial_assessment(self) -> Dict[str, Any]:
@@ -184,6 +195,10 @@ class ArticleUnderstandingBot:
             print("\n추가 질문에 대한 답변을 입력해주세요 (완료하려면 Enter 두 번):")
             remedial_response = get_multiline_input()
             
+            # Add to chat history
+            self.chat_history.add_user_message(remedial_questions)
+            self.chat_history.add_ai_message(remedial_response)
+            
             # Reassess understanding
             current_assessment = self.assess_understanding(remedial_questions, remedial_response)
             attempt += 1
@@ -222,9 +237,16 @@ class ArticleUnderstandingBot:
         print("\n=== 심층 분석 질문 ===")
         print(critical_questions)
         
+        # Add initial response to chat history
+        self.chat_history.add_user_message("Initial response: " + response)
+        
         while followup_count < max_followups:
             print("\n답변을 입력해주세요 (완료하려면 Enter 두 번):")
             critical_response = get_multiline_input()
+            
+            # Add to chat history
+            self.chat_history.add_user_message(critical_questions)
+            self.chat_history.add_ai_message(critical_response)
             
             # Check response quality
             quality_check = self.check_response_quality(critical_questions, critical_response)
