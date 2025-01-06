@@ -1,5 +1,3 @@
-# 추가질문 생성하고 추가 답변 입력까지 성공
-
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
@@ -79,6 +77,7 @@ class ArticleUnderstandingBot:
             부족한 부분: {areas_for_improvement}
             
             질문은 구체적이고 학생의 이해를 돕는 방향이어야 합니다.
+            질문을 명확하게 번호를 매겨서 제시해주세요.
             """
         )
         
@@ -96,6 +95,8 @@ class ArticleUnderstandingBot:
             2. 대안적 관점 고려
             3. 실제 적용 가능성
             4. 잠재적 한계점
+            
+            질문을 명확하게 번호를 매겨서 제시해주세요.
             """
         )
         
@@ -137,7 +138,6 @@ class ArticleUnderstandingBot:
         """Stage 1: Generate initial questions and start assessment"""
         chain = self.initial_questions_prompt | self.llm
         questions_message = chain.invoke({"article": self.article})
-        # Extract the actual content from the Message object
         questions = questions_message.content if hasattr(questions_message, 'content') else str(questions_message)
         return {"questions": questions}
     
@@ -152,24 +152,47 @@ class ArticleUnderstandingBot:
         result = result_message.content if hasattr(result_message, 'content') else str(result_message)
         assessment = json.loads(result)
         
-        if assessment["total"] < self.min_score:
+        return {
+            "status": "needs_remedial" if assessment["total"] < self.min_score else "ready_for_critical",
+            "score": assessment["total"],
+            "feedback": assessment["feedback"],
+            "areas_for_improvement": assessment.get("areas_for_improvement", [])
+        }
+
+    def handle_remedial_learning(self, initial_assessment: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle remedial learning loop until minimum score is reached"""
+        current_assessment = initial_assessment
+        max_attempts = 3  # Prevent infinite loops
+        attempt = 0
+        
+        while current_assessment["status"] == "needs_remedial" and attempt < max_attempts:
+            print(f"\n=== 평가 결과 (점수: {current_assessment['score']}) ===")
+            print(f"피드백: {current_assessment['feedback']}")
+            
+            # Generate remedial questions
             remedial_chain = self.remedial_prompt | self.llm
             remedial_message = remedial_chain.invoke({
                 "article": self.article,
-                "areas_for_improvement": assessment["areas_for_improvement"]
+                "areas_for_improvement": current_assessment["areas_for_improvement"]
             })
-            remedial_questions = remedial_message.content if hasattr(remedial_message, 'content') else str(remedial_message)
-            return {
-                "status": "needs_remedial",
-                "feedback": assessment["feedback"],
-                "remedial_questions": remedial_questions
-            }
+            remedial_questions = remedial_message.content
+            
+            print("\n=== 추가 질문 ===")
+            print(remedial_questions)
+            
+            # Get response for remedial questions
+            print("\n추가 질문에 대한 답변을 입력해주세요 (완료하려면 Enter 두 번):")
+            remedial_response = get_multiline_input()
+            
+            # Reassess understanding
+            current_assessment = self.assess_understanding(remedial_questions, remedial_response)
+            attempt += 1
         
-        return {
-            "status": "ready_for_critical",
-            "feedback": assessment["feedback"]
-        }
-    
+        if attempt >= max_attempts:
+            print("\n최대 시도 횟수에 도달했습니다. 다음 단계로 진행합니다.")
+        
+        return current_assessment
+
     def generate_critical_questions(self, response: str) -> str:
         """Stage 2: Generate critical thinking questions"""
         chain = self.critical_prompt | self.llm
@@ -188,6 +211,36 @@ class ArticleUnderstandingBot:
         })
         result = message.content if hasattr(message, 'content') else str(message)
         return json.loads(result)
+
+    def handle_critical_thinking(self, response: str) -> None:
+        """Handle critical thinking stage with follow-up questions"""
+        max_followups = 3  # Maximum number of follow-up attempts
+        followup_count = 0
+        
+        # Generate initial critical thinking questions
+        critical_questions = self.generate_critical_questions(response)
+        print("\n=== 심층 분석 질문 ===")
+        print(critical_questions)
+        
+        while followup_count < max_followups:
+            print("\n답변을 입력해주세요 (완료하려면 Enter 두 번):")
+            critical_response = get_multiline_input()
+            
+            # Check response quality
+            quality_check = self.check_response_quality(critical_questions, critical_response)
+            print(f"\n=== 답변 평가 ===\n{quality_check['feedback']}")
+            
+            if quality_check["quality"] == "sufficient":
+                print("\n심층 분석이 충분합니다. 다음 단계로 진행하겠습니다.")
+                break
+                
+            print("\n=== 추가 질문 ===")
+            print(quality_check["suggested_followup"])
+            critical_questions = quality_check["suggested_followup"]
+            followup_count += 1
+        
+        if followup_count >= max_followups:
+            print("\n최대 follow-up 횟수에 도달했습니다. 다음 단계로 진행합니다.")
     
     def guide_synthesis(self) -> str:
         """Stage 3: Guide final synthesis"""
@@ -199,6 +252,16 @@ class ArticleUnderstandingBot:
             "conversation_history": conversation_history
         })
         return message.content if hasattr(message, 'content') else str(message)
+
+def get_multiline_input() -> str:
+    """Helper function to get multiline input from user"""
+    lines = []
+    while True:
+        line = input()
+        if line.strip() == "":
+            break
+        lines.append(line)
+    return "\n".join(lines)
 
 def clean_text(text: str) -> str:
     """Clean the input text from potential markdown or special characters"""
@@ -246,58 +309,29 @@ def main():
     
     # Get student response and assess
     print("\nPlease provide your response (press Enter twice when done):")
-    response_lines = []
-    while True:
-        line = input()
-        if line.strip() == "":
-            break
-        response_lines.append(line)
+    response = get_multiline_input()
     
-    response = "\n".join(response_lines)
     if not response.strip():
         print("Error: Response cannot be empty. Please provide your thoughts about the article.")
         return
         
+    # Initial assessment and handle remedial if needed
     assessment = bot.assess_understanding(initial["questions"], response)
     
     if assessment["status"] == "needs_remedial":
-        print("\n=== 평가 결과 ===")
-        print(f"피드백: {assessment['feedback']}")
-        print("\n=== 추가 질문 ===")
-        print(assessment["remedial_questions"])
-        
-        # Get response for remedial questions
-        print("\n추가 질문에 대한 답변을 입력해주세요 (완료하려면 Enter 두 번):")
-        remedial_response_lines = []
-        while True:
-            line = input()
-            if line.strip() == "":
-                break
-            remedial_response_lines.append(line)
-            
-        remedial_response = "\n".join(remedial_response_lines)
-        if not remedial_response.strip():
-            print("Error: Response cannot be empty.")
-            return
-            
-        # Reassess understanding with remedial response
-        reassessment = bot.assess_understanding(assessment["remedial_questions"], remedial_response)
-        # Continue remedial loop...
+        # Handle remedial learning loop
+        final_assessment = bot.handle_remedial_learning(assessment)
+        if final_assessment["status"] == "ready_for_critical":
+            # Proceed to critical thinking stage
+            bot.handle_critical_thinking(response)
     else:
-        # Stage 2: Critical Thinking
-        critical_questions = bot.generate_critical_questions(response)
-        print("Critical Thinking Questions:", critical_questions)
-        
-        # Get and evaluate critical thinking response
-        critical_response = input("Your critical analysis: ")
-        quality_check = bot.check_response_quality(critical_questions, critical_response)
-        
-        if quality_check["quality"] == "sufficient":
-            # Stage 3: Final Synthesis
-            synthesis_guide = bot.guide_synthesis()
-            print("Synthesis Guide:", synthesis_guide)
-        else:
-            print("Follow-up Question:", quality_check["suggested_followup"])
+        # Directly proceed to critical thinking stage
+        bot.handle_critical_thinking(response)
+    
+    # Final synthesis stage
+    print("\n=== 최종 정리 가이드 ===")
+    synthesis_guide = bot.guide_synthesis()
+    print(synthesis_guide)
 
 if __name__ == "__main__":
     main()
