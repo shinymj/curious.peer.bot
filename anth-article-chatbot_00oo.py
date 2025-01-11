@@ -33,12 +33,10 @@ class ArticleUnderstandingBot:
             다음 글에 대한 기본적인 이해를 평가하기 위한 3가지 핵심 질문을 생성해주세요:
             {article}
             
-            각각의 질문은 다음을 평가할 수 있어야 합니다:
-            1. 키워드 파악 여부 (단답형 문항항)
-            3. 핵심 개념 이해정도
+            질문은 다음을 평가할 수 있어야 합니다:
+            1. 핵심 개념 이해도
             2. 주요 논점 파악
-
-            설명 없이 질문만, 번호를 매겨서 제시해 주세요.
+            3. 논리적 설명 능력
             """
         )
         
@@ -52,9 +50,9 @@ class ArticleUnderstandingBot:
             답변: {response}
             
             각 항목을 0-5점으로 평가하고, 구체적인 피드백을 제공해주세요:
-            1. 키워드 파악 여부
-            2. 핵심 개념 이해 정도
-            3. 주요 논점 파악악
+            1. 핵심 개념 이해도
+            2. 주요 논점 파악
+            3. 논리적 설명 능력
             
             JSON 형식으로 반환:
             {{
@@ -107,16 +105,16 @@ class ArticleUnderstandingBot:
         self.quality_check_prompt = PromptTemplate(
             input_variables=["response", "question"],
             template="""
-            답변이 질문의 의도를 반영했는지 평가해주세요:
+            다음 답변이 질문의 의도를 달성했는지 평가해주세요:
             
             질문: {question}
             답변: {response}
             
             JSON 형식으로 반환:
             {{
-                "quality": "sufficient" 또는 "out-of-context",
+                "quality": "sufficient" 또는 "needs_depth",
                 "feedback": str,
-                "suggested_followup": str if out-of-context else null
+                "suggested_followup": str if needs_depth else null
             }}
             """
         )
@@ -301,6 +299,11 @@ def main():
 1. 일반 텍스트로 입력해주세요 (마크다운이나 특수문자 없이)
 2. 여러 줄 입력이 가능합니다
 3. 입력을 완료하려면 빈 줄(Enter 두 번)을 입력하세요
+예시:
+제목
+이것은 본문입니다.
+두 번째 문단입니다.
+(빈 줄 입력으로 완료)
     """)
     
     # Get article input

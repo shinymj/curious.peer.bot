@@ -50,21 +50,19 @@ class ArticleUnderstandingBot:
             답변: {response}
             
             각 항목을 0-5점으로 평가하고, 구체적인 피드백을 제공해주세요:
-            1. 핵심 개념 이해도
-            2. 주요 논점 파악
-            3. 논리적 설명 능력
-            
-            JSON 형식으로 반환:
+            반드시 다음 JSON 형식으로만 응답해주세요:
             {{
                 "scores": {{
-                    "concept": int,
-                    "main_points": int,
-                    "explanation": int
+                    "concept": <0-5 사이 정수>,
+                    "main_points": <0-5 사이 정수>,
+                    "explanation": <0-5 사이 정수>
                 }},
-                "total": int,
-                "feedback": str,
-                "areas_for_improvement": List[str]
+                "total": <총점>,
+                "feedback": "<평가 피드백>",
+                "areas_for_improvement": ["개선점1", "개선점2"]
             }}
+            
+            다른 텍스트나 설명 없이 JSON만 반환해주세요.
             """
         )
         
@@ -155,21 +153,30 @@ class ArticleUnderstandingBot:
     
     def assess_understanding(self, questions: str, response: str) -> Dict[str, Any]:
         """Evaluate student's understanding and determine next steps"""
-        assess_chain = self.assessment_prompt | self.llm
-        result_message = assess_chain.invoke({
-            "article": self.article,
-            "questions": questions,
-            "response": response
-        })
-        result = result_message.content if hasattr(result_message, 'content') else str(result_message)
-        assessment = json.loads(result)
+        output_parser = JsonOutputParser()
+        assess_chain = self.assessment_prompt | self.llm | output_parser
+    
+        try:
+            assessment = assess_chain.invoke({
+                "article": self.article,
+                "questions": questions,
+                "response": response
+            })
         
-        return {
-            "status": "needs_remedial" if assessment["total"] < self.min_score else "ready_for_critical",
-            "score": assessment["total"],
-            "feedback": assessment["feedback"],
-            "areas_for_improvement": assessment.get("areas_for_improvement", [])
-        }
+            return {
+                "status": "needs_remedial" if assessment["total"] < self.min_score else "ready_for_critical",
+                "score": assessment["total"],
+                "feedback": assessment["feedback"],
+                "areas_for_improvement": assessment.get("areas_for_improvement", [])
+            }
+        except Exception as e:
+            print(f"Error parsing assessment: {e}")
+            return {
+                "status": "needs_remedial",
+                "score": 0,
+                "feedback": "평가 처리 중 오류가 발생했습니다.",
+                "areas_for_improvement": ["전반적인 답변의 보완이 필요합니다."]
+            }
 
     def handle_remedial_learning(self, initial_assessment: Dict[str, Any]) -> Dict[str, Any]:
         """Handle remedial learning loop until minimum score is reached"""
